@@ -1,0 +1,2 @@
+Can you tell the difference between ‘K’ ("\u004B")
+or ‘Ω’ ("\u03a9") and ‘Ω’ (Ohm sign “\u2126”)?

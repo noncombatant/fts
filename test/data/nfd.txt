@@ -1,0 +1,4 @@
+See https://go.dev/blog/normalization
+
+(e-acute) can be represented in a string as a single rune ("\u00e9") or an ’e'
+followed by an acute accent (“e\u0301”): é

@@ -1,0 +1,2 @@
+and ‘K’ (Kelvin sign
+“\u212A”) or ‘Ω’ ("\u03a9") and ‘Ω’ (Ohm sign “\u2126”)?

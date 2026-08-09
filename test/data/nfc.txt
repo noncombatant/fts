@@ -1,0 +1,3 @@
+There are often several ways to represent the same string. For example, an é
+(e-acute) can be represented in a string as a single rune ("\u00e9") or an ’e'
+followed by an acute accent (“e\u0301”)
