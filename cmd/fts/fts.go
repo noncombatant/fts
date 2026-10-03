@@ -53,7 +53,7 @@ func doSearch(idx *fts.Index, query string) {
 	matchedIDs := idx.Search(query)
 	for id := range matchedIDs {
 		doc, ok := idx.Documents[id]
-		if ok {  // BUG TODO: Figure out why this is necessary.
+		if ok { // BUG TODO: Figure out why this is necessary.
 			fmt.Println(doc.Pathname)
 		}
 	}

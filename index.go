@@ -9,12 +9,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/gob"
-	"errors"
 	"io"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"time"
 	"unsafe"
@@ -61,6 +61,8 @@ func NewIndex(inputLimit uint64) *Index {
 // It currently uses [encoding/gob], but that may change.
 func (index *Index) Encode(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
+	index.indexMutex.Lock()
+	defer index.indexMutex.Unlock()
 	return encoder.Encode(index)
 }
 
@@ -85,10 +87,15 @@ func (index *Index) Add(rootPathname string, verbose *log.Logger) error {
 		return e
 	}
 
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
 	if info.Mode().IsRegular() {
-		if e := index.addStreamOrTimeout(rootPathname, info, verbose); e != nil {
-			log.Printf("%q: %v", rootPathname, e)
-		}
+		wg.Go(func() {
+			if e := index.addStreamOrTimeout(rootPathname, info, verbose); e != nil {
+				log.Printf("%q: %v", rootPathname, e)
+			}
+		})
 	} else if info.Mode().IsDir() {
 		filepath.WalkDir(rootPathname, func(pathname string, entry fs.DirEntry, e error) error {
 			if e != nil {
@@ -107,9 +114,12 @@ func (index *Index) Add(rootPathname string, verbose *log.Logger) error {
 					log.Printf("%q: %v", pathname, e)
 					return nil
 				}
-				if e := index.addStreamOrTimeout(pathname, info, verbose); e != nil {
-					log.Printf("%q: %v", pathname, e)
-				}
+				wg.Go(func() {
+					if e := index.addStreamOrTimeout(pathname, info, verbose); e != nil {
+						log.Printf("%q: %v", pathname, e)
+					}
+				})
+				return nil
 			}
 			return nil
 		})
@@ -138,25 +148,26 @@ func shouldSkip(basename string) bool {
 }
 
 func (index *Index) addStreamOrTimeout(pathname string, info fs.FileInfo, verbose *log.Logger) error {
-	r := make(chan error, 1)
-	go func() {
-		r <- index.addStream(pathname, info, verbose)
-	}()
+	return index.addStream(pathname, info, verbose)
 
-	const addStreamDeadline = 1 * time.Second
-	select {
-	case <-time.After(addStreamDeadline):
-		return errors.New("timed out")
-	case e := <-r:
-		return e
-	}
+	//r := make(chan error, 1)
+	//go func() {
+	//	r <- index.addStream(pathname, info, verbose)
+	//}()
+	//const addStreamDeadline = 60 * time.Second
+	//select {
+	//case <-time.After(addStreamDeadline):
+	//	return errors.New("timed out")
+	//case e := <-r:
+	//	return e
+	//}
 }
 
 // addStream adds the regular file named by pathname to the index.
 func (index *Index) addStream(pathname string, info fs.FileInfo, verbose *log.Logger) error {
 	defer func() {
 		if r := recover(); r != nil {
-			verbose.Printf("recovered %q: %v", pathname, r)
+			verbose.Printf("recovered %q: %v %s", pathname, r, debug.Stack())
 		}
 	}()
 
@@ -167,10 +178,13 @@ func (index *Index) addStream(pathname string, info fs.FileInfo, verbose *log.Lo
 	verbose.Printf("%q", pathname)
 
 	id := ComputeID(pathname)
+	index.documentsMutex.Lock()
 	document, ok := index.Documents[id]
 	if ok && document.IndexedAt.After(info.ModTime()) {
+		index.documentsMutex.Unlock()
 		return nil
 	}
+	index.documentsMutex.Unlock()
 
 	document = Document{Pathname: pathname, ModTime: info.ModTime(), IndexedAt: time.Now()}
 	count := uint64(0)

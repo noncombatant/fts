@@ -25,8 +25,6 @@ type Stemmer func(word string, stemStopWords bool) string
 var (
 	StemEnglish = snowballen.Stem
 	StemFrench  = snowballfr.Stem
-
-	normalizer = transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFKC)
 )
 
 func isWordRune(r rune) bool {
@@ -69,6 +67,7 @@ func isMn(r rune) bool {
 // normalizeToken normalizes t and returns it, or returns an empty string if t
 // is not a valid token.
 func normalizeToken(t string) string {
+	normalizer := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFKC)
 	result, _, e := transform.String(normalizer, t)
 	if e != nil {
 		log.Print(e)

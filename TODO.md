@@ -1,5 +1,3 @@
-# TODO
-
 Use qpdf for better text extraction from PDFs.
 
 See if interning strings improves efficiency.
