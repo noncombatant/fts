@@ -27,3 +27,5 @@ Keep a tally of bytes indexed per second in `Index`.
 Design and implement fancier querying syntax and semantics.
 
 Improve test coverage.
+
+Use log/slog.
