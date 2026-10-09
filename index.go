@@ -192,7 +192,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo, verbose *log.Lo
 	}
 	index.documentsMutex.Unlock()
 
-	document = Document{Pathname: pathname, IndexedAt: time.Now()}
+	document = Document{IndexedAt: time.Now()}
 	count := uint64(0)
 
 	scanner := bufio.NewScanner(bytes.NewBuffer([]byte(pathname)))

@@ -9,9 +9,6 @@ import (
 
 // Document contains metadata about an indexed document.
 type Document struct {
-	// Pathname is the pathname of this Document.
-	Pathname string
-
 	// IndexAt gives the time at which we last indexed this Document.
 	IndexedAt time.Time
 }
