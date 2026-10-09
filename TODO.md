@@ -7,9 +7,6 @@ text that match the query.
 
 Add an option to match substrings?
 
-Add a FIFO client/server option? (Amortizes the startup cost of reading the
-index file.)
-
 Store file hashes and mtimes, and a real database, so that we can read and
 update the database incrementally instead of all at once every time. And we
 won’t have to maintain the entire database in memory while indexing.
