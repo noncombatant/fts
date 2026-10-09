@@ -20,10 +20,13 @@ Better tokenization, including enabling multiple outputs from a single token
 (e.g. “dogs” should yield both “dogs” and “dog”, and maybe “santé” should yield
 a normalized form of “santé” and “sante”).
 
+Also multi-tokenize numbers.
+
 Keep a tally of bytes indexed per second in `Index`.
 
 Design and implement fancier querying syntax and semantics.
 
-Improve test coverage.
+Improve test coverage. Make the tests exhaustively search for every word (and
+every token derivable from it) in the testdata set.
 
 Use log/slog.
