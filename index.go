@@ -41,9 +41,7 @@ type Index struct {
 // DefaultInputLimit is large enough to hopefully get most of the meaningful
 // tokens from a [Document], while still keeping memory consumption reasonable.
 // Refer to [Index].
-//
-// TODO: Consider setting this higher.
-const DefaultInputLimit = uint64(1 * 1024 * 1024)
+const DefaultInputLimit = uint64(8 * 1024 * 1024)
 
 // NewIndex returns a new [Index] with the given inputLimit.
 func NewIndex(inputLimit uint64) *Index {
