@@ -14,11 +14,6 @@ type Document struct {
 	// Pathname is the pathname of this Document.
 	Pathname string
 
-	// ModTime gives the time this Document was modified.
-	//
-	// TODO: We don't need this field.
-	ModTime time.Time
-
 	// IndexAt gives the time at which we last indexed this Document.
 	IndexedAt time.Time
 }
