@@ -1,3 +1,5 @@
+.PHONY: default vet tests build clean
+
 default: vet tests build
 
 vet:
