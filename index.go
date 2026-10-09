@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -73,13 +73,8 @@ func DecodeIndex(r io.Reader) (*Index, error) {
 }
 
 // Add recursively walks a directory of files and subdirectories and adds any
-// regular files it finds to index. Along the way, it logs informative messages
-// to verbose.
-//
-// Note: Add uses [log], not verbose, for errors.
-//
-// TODO: Get rid of verbose, and just use slog throughout.
-func (index *Index) Add(rootPathname string, verbose *log.Logger) error {
+// regular files it finds to index.
+func (index *Index) Add(rootPathname string) error {
 	info, e := os.Stat(rootPathname)
 	if e != nil {
 		return e
@@ -90,14 +85,14 @@ func (index *Index) Add(rootPathname string, verbose *log.Logger) error {
 
 	if info.Mode().IsRegular() {
 		wg.Go(func() {
-			if e := index.addStreamOrTimeout(rootPathname, info, verbose); e != nil {
-				log.Printf("%q: %v", rootPathname, e)
+			if e := index.addStreamOrTimeout(rootPathname, info); e != nil {
+				slog.Error("add", "pathname", rootPathname, "error", e)
 			}
 		})
 	} else if info.Mode().IsDir() {
 		filepath.WalkDir(rootPathname, func(pathname string, entry fs.DirEntry, e error) error {
 			if e != nil {
-				log.Printf("%q: %v", pathname, e)
+				slog.Error("walk", "pathname", pathname, "error", e)
 				return nil
 			}
 			if shouldSkip(entry.Name()) {
@@ -109,12 +104,12 @@ func (index *Index) Add(rootPathname string, verbose *log.Logger) error {
 			if entry.Type().IsRegular() {
 				info, e := entry.Info()
 				if e != nil {
-					log.Printf("%q: %v", pathname, e)
+					slog.Error("Info", "pathname", pathname, "error", e)
 					return nil
 				}
 				wg.Go(func() {
-					if e := index.addStreamOrTimeout(pathname, info, verbose); e != nil {
-						log.Printf("%q: %v", pathname, e)
+					if e := index.addStreamOrTimeout(pathname, info); e != nil {
+						slog.Error("add", "pathname", pathname, "error", e)
 					}
 				})
 				return nil
@@ -154,12 +149,12 @@ func shouldSkip(basename string) bool {
 	return ignoreBasenames.Contains(basename)
 }
 
-func (index *Index) addStreamOrTimeout(pathname string, info fs.FileInfo, verbose *log.Logger) error {
-	return index.addStream(pathname, info, verbose)
+func (index *Index) addStreamOrTimeout(pathname string, info fs.FileInfo) error {
+	return index.addStream(pathname, info)
 
 	//r := make(chan error, 1)
 	//go func() {
-	//	r <- index.addStream(pathname, info, verbose)
+	//	r <- index.addStream(pathname, info)
 	//}()
 	//const addStreamDeadline = 60 * time.Second
 	//select {
@@ -171,18 +166,18 @@ func (index *Index) addStreamOrTimeout(pathname string, info fs.FileInfo, verbos
 }
 
 // addStream adds the regular file named by pathname to the index.
-func (index *Index) addStream(pathname string, info fs.FileInfo, verbose *log.Logger) error {
+func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 	defer func() {
 		if r := recover(); r != nil {
-			verbose.Printf("recovered %q: %v %s", pathname, r, debug.Stack())
+			slog.Debug("recovered", "pathname", pathname, "r", r, "stack", debug.Stack())
 		}
 	}()
 
 	if shouldSkip(pathname) {
-		verbose.Printf("addStream skipping %q", pathname)
+		slog.Debug("addStream skipping", "pathname", pathname)
 		return nil
 	}
-	verbose.Printf("%q", pathname)
+	slog.Debug("add", "pathname", pathname)
 
 	index.documentsMutex.Lock()
 	document, ok := index.Documents[pathname]

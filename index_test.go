@@ -6,15 +6,11 @@
 package simplefts
 
 import (
-	"io"
-	"log"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-var discard = log.New(io.Discard, "", 0)
 
 func TestIndex(t *testing.T) {
 	idx := NewIndex(0)
@@ -23,7 +19,7 @@ func TestIndex(t *testing.T) {
 	assert.Nil(t, idx.Search("cement"))
 
 	cpanPath := "test/data/CPAN"
-	idx.Add(cpanPath, discard)
+	idx.Add(cpanPath)
 	expected := SetFromSlice([]string{cpanPath})
 	assert.True(t, expected.Equal(idx.Search("a")))
 	assert.True(t, expected.Equal(idx.Search("perl")))
@@ -32,7 +28,7 @@ func TestIndex(t *testing.T) {
 	assert.Equal(t, 0, idx.Search("DoNuts").Len())
 
 	codecPath := "test/data/Codec"
-	idx.Add(codecPath, discard)
+	idx.Add(codecPath)
 	assert.Nil(t, idx.Search("donut"))
 	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(idx.Search("program")))
 	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(idx.Search("a")))
@@ -43,15 +39,15 @@ func TestIndex(t *testing.T) {
 
 	// Make sure decompression works:
 	bz2Path := "test/data/zreader.txt.bz2"
-	idx.Add(bz2Path, discard)
+	idx.Add(bz2Path)
 	gzPath := "test/data/zreader.txt.gz"
-	idx.Add(gzPath, discard)
+	idx.Add(gzPath)
 	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(idx.Search("goat")))
 	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(idx.Search("lazy")))
 
 	// Make sure indexing pathnames works:
 	cottagePath := "test/data/Craven_Cottage"
-	idx.Add(cottagePath, discard)
+	idx.Add(cottagePath)
 	assert.True(t, SetFromSlice([]string{cottagePath}).Equal(idx.Search("craven")))
 }
 
@@ -66,10 +62,10 @@ func TestUnicodeNormalization(t *testing.T) {
 	compatibilityKelvinPath := "test/data/compatibility-kelvin.txt"
 
 	idx := NewIndex(0)
-	idx.Add(nfcPath, discard)
-	idx.Add(nfdPath, discard)
-	idx.Add(compatibilityKPath, discard)
-	idx.Add(compatibilityKelvinPath, discard)
+	idx.Add(nfcPath)
+	idx.Add(nfdPath)
+	idx.Add(compatibilityKPath)
+	idx.Add(compatibilityKelvinPath)
 
 	// Refer to the test files: these query strings look the same but are not.
 	// Searching for either should yield both result files.
@@ -99,7 +95,7 @@ func BenchmarkIndexMemory(b *testing.B) {
 	runtime.ReadMemStats(&m1)
 
 	idx := NewIndex(0)
-	idx.Add("test/data", discard)
+	idx.Add("test/data")
 
 	runtime.ReadMemStats(&m2)
 	loadBytes := float64(m2.Alloc - m1.Alloc)

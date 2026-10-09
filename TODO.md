@@ -25,5 +25,3 @@ Design and implement fancier querying syntax and semantics.
 
 Improve test coverage. Make the tests exhaustively search for every word (and
 every token derivable from it) in the testdata set.
-
-Use log/slog.

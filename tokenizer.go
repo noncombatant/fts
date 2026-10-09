@@ -8,7 +8,7 @@ package simplefts
 import (
 	"bufio"
 	"io"
-	"log"
+	"log/slog"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -70,7 +70,7 @@ func normalizeToken(t string) string {
 	normalizer := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFKC)
 	result, _, e := transform.String(normalizer, t)
 	if e != nil {
-		log.Print(e)
+		slog.Error("normalizeToken", "t", t, "error", e)
 	}
 	return strings.ToLower(result)
 }

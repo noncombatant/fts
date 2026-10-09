@@ -7,8 +7,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,29 +22,35 @@ import (
 	"github.com/noncombatant/zreader"
 )
 
-func createIndex(index *fts.Index, rootPathname string, verbose *log.Logger) {
-	if e := index.Add(rootPathname, verbose); e != nil {
-		log.Print(rootPathname, e)
+func createIndex(index *fts.Index, rootPathname string) {
+	if e := index.Add(rootPathname); e != nil {
+		slog.Error("Add", "rootPathname", rootPathname, "error", e)
 	}
+}
+
+func fatal(message string, args ...any) {
+	slog.Error(message, args...)
+	// TODO: Use sysexits
+	os.Exit(1)
 }
 
 func saveIndex(index *fts.Index, pathname string) {
 	f, e := os.Create(pathname)
 	if e != nil {
-		log.Fatal(e)
+		fatal("Create", "pathname", pathname, "error", e)
 	}
 	w, e := zstd.NewWriter(f)
 	if e != nil {
-		log.Fatal(e)
+		fatal("zstd.NewWriter", "error", e)
 	}
 	if e := index.Encode(w); e != nil {
-		log.Fatal(e)
+		fatal("Encode", "error", e)
 	}
 	if e := w.Close(); e != nil {
-		log.Fatal(e)
+		fatal("Close", "error", e)
 	}
 	if e := f.Close(); e != nil {
-		log.Fatal(e)
+		fatal("Close", "error", e)
 	}
 }
 
@@ -54,7 +59,7 @@ func doSearch(idx *fts.Index, query string) {
 	for pathname := range results {
 		_, ok := idx.Documents[pathname]
 		if ok { // BUG TODO: Figure out why this is necessary.
-			fmt.Println(pathname)
+			slog.Info("hit", "URL", pathname)
 		}
 	}
 }
@@ -62,11 +67,11 @@ func doSearch(idx *fts.Index, query string) {
 func atRoot(previous, name string) bool {
 	here, e := os.Stat(previous)
 	if e != nil {
-		log.Fatal(e)
+		fatal("Stat", "previous", previous, "error", e)
 	}
 	parent, e := os.Stat(name)
 	if e != nil {
-		log.Fatal(e)
+		fatal("Stat", "name", name, "error", e)
 	}
 	hereStatus := here.Sys().(*syscall.Stat_t)
 	parentStatus := parent.Sys().(*syscall.Stat_t)
@@ -126,7 +131,6 @@ func printHelp(isError bool, subcommands subcommands) {
 }
 
 func main() {
-	log.SetFlags(0)
 	commands := subcommands{
 		"help":  flag.NewFlagSet("help", flag.ExitOnError),
 		"index": flag.NewFlagSet("index", flag.ExitOnError),
@@ -137,7 +141,7 @@ func main() {
 
 	indexCommand := commands["index"]
 	indexIndexPathname := indexCommand.String("i", defaultIndexPathname, "index file pathname")
-	indexVerbose := indexCommand.Bool("v", false, "print verbose output")
+	indexDebug := indexCommand.Bool("v", false, "log debug output")
 	indexInputLimit := indexCommand.Uint64("l", fts.DefaultInputLimit, "input size limit (bytes of tokens)")
 	indexCPUProfilePathname := indexCommand.String("cpu", "", "CPU profile pathname")
 	indexMemoryProfilePathname := indexCommand.String("memory", "", "memory profile pathname")
@@ -156,11 +160,11 @@ func main() {
 		if *indexCPUProfilePathname != "" {
 			f, e := os.Create(*indexCPUProfilePathname)
 			if e != nil {
-				log.Fatal(e)
+				fatal("CPU profile", "error", e)
 			}
 			defer f.Close()
 			if e := pprof.StartCPUProfile(f); e != nil {
-				log.Fatal(e)
+				fatal("StartCPUProfile", "error", e)
 			}
 			defer pprof.StopCPUProfile()
 		}
@@ -168,46 +172,46 @@ func main() {
 		if len(pathnames) == 0 {
 			pathnames, _ = filepath.Glob("[^.]*")
 		}
-		verbose := log.New(io.Discard, "", 0)
-		if *indexVerbose {
-			verbose = log.New(os.Stdout, "", 0)
+		slog.SetLogLoggerLevel(slog.LevelInfo)
+		if *indexDebug {
+			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
 		idx := fts.NewIndex(*indexInputLimit)
 		for _, pathname := range pathnames {
-			createIndex(idx, pathname, verbose)
+			createIndex(idx, pathname)
 		}
 		saveIndex(idx, *indexIndexPathname)
 		if *indexMemoryProfilePathname != "" {
 			f, e := os.Create(*indexMemoryProfilePathname)
 			if e != nil {
-				log.Fatal(e)
+				fatal("memory profile", "error", e)
 			}
 			defer f.Close()
 			runtime.GC()
 			if e := pprof.WriteHeapProfile(f); e != nil {
-				log.Fatal(e)
+				fatal("WriteHeapProfile", "error", e)
 			}
 		}
 	case "query":
 		queryCommand.Parse(os.Args[2:])
 		indexPathname := findIndexPathname(*queryIndexPathname)
 		if indexPathname == "" {
-			log.Fatalf("Could not find index file %q", *queryIndexPathname)
+			fatal("findIndexPathname", "pathname", *queryIndexPathname)
 		}
 		zr, e := zreader.Open(indexPathname)
 		if e != nil {
-			log.Fatal(e)
+			fatal("open zReader", "pathname", indexPathname, "error", e)
 		}
 		defer zr.Close()
 		idx, e := fts.DecodeIndex(zr)
 		if e != nil {
-			log.Fatal(e)
+			fatal("DecodeIndex", "error", e)
 		}
 		query := strings.Join(queryCommand.Args(), " ")
 		if query != "" {
 			doSearch(idx, query)
 		} else {
-			fmt.Println("Enter your queries, 1 per line:")
+			slog.Info("query server ready")
 			scanner := bufio.NewScanner(os.Stdin)
 			for scanner.Scan() {
 				doSearch(idx, scanner.Text())
