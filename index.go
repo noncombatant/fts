@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -20,10 +21,10 @@ import (
 	"unsafe"
 )
 
-// Index is an inverted index. It maps tokens to document IDs.
-//
-// Refer to [ID], [Document], and [Documents].
+// Index maps tokens (strings) to [Document] [ID]s.
 type Index struct {
+	// Index maps tokens (strings) to 1 or more [Document] [ID]s.
+	//
 	// I considered using Set[ID] instead of []ID, but it costs a lot of memory
 	// and a little time. The current implementation expects the ID slice to be
 	// sorted; if that becomes impossible (such as with more types of document
@@ -37,7 +38,7 @@ type Index struct {
 
 	documentsMutex sync.Mutex
 
-	// InputLimit is the maximum number of bytes' worth of tokens to read per
+	// InputLimit is the maximum number of bytes’ worth of tokens to read per
 	// document. 0 indicates no limit. Refer to [DefaultInputLimit].
 	InputLimit uint64
 }
@@ -45,6 +46,8 @@ type Index struct {
 // DefaultInputLimit is large enough to hopefully get most of the meaningful
 // tokens from a [Document], while still keeping memory consumption reasonable.
 // Refer to [Index].
+//
+// TODO: Consider setting this higher.
 const DefaultInputLimit = uint64(1 * 1024 * 1024)
 
 // NewIndex returns a new [Index] with the given inputLimit.
@@ -58,7 +61,7 @@ func NewIndex(inputLimit uint64) *Index {
 
 // Encode serializes index into w.
 //
-// It currently uses [encoding/gob], but that may change.
+// It currently uses [encoding/gob], but that will surely have to change.
 func (index *Index) Encode(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
 	index.indexMutex.Lock()
@@ -81,6 +84,8 @@ func DecodeIndex(r io.Reader) (*Index, error) {
 // to verbose.
 //
 // Note: Add uses [log], not verbose, for errors.
+//
+// TODO: Get rid of verbose, and just use slog throughout.
 func (index *Index) Add(rootPathname string, verbose *log.Logger) error {
 	info, e := os.Stat(rootPathname)
 	if e != nil {
@@ -127,6 +132,15 @@ func (index *Index) Add(rootPathname string, verbose *log.Logger) error {
 	return nil
 }
 
+// String renders an [Index] as a string.
+//
+// TODO: Improve this to include more information.
+func (index *Index) String() string {
+	return fmt.Sprintf("Index: %d words in %d documents", len(index.Index), len(index.Documents))
+}
+
+// TODO: This is more of a concern for the crawler, which should be a separate
+// component.
 var ignoreBasenames = SetFromSlice([]string{
 	// Pointless-to-index and often huge directories on macOS:
 	"Applications",
