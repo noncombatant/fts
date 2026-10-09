@@ -19,4 +19,5 @@ type Documents map[string]Document
 // TODO: Idea: For string, token, et c. identifiers, use
 // lukechampine.com/uint128. have to supply getter/setter, for locking. E.g.
 // `GetNewIDForDocument(pathname string) Uint128`. Need a map of Uint128 to
-// Document.
+// Document. Use these IDs in place of pathname strings here and in index.go
+// — a form of compression (both in memory and in the gob).
