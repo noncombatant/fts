@@ -23,9 +23,8 @@ func TestIndex(t *testing.T) {
 	assert.Nil(t, idx.Search("cement"))
 
 	cpanPath := "test/data/CPAN"
-	cpanID := ComputeID(cpanPath)
 	idx.Add(cpanPath, discard)
-	expected := SetFromSlice([]ID{cpanID})
+	expected := SetFromSlice([]string{cpanPath})
 	assert.True(t, expected.Equal(idx.Search("a")))
 	assert.True(t, expected.Equal(idx.Search("perl")))
 	assert.True(t, expected.Equal(idx.Search("PeRl")))
@@ -33,31 +32,27 @@ func TestIndex(t *testing.T) {
 	assert.Equal(t, 0, idx.Search("DoNuts").Len())
 
 	codecPath := "test/data/Codec"
-	codecID := ComputeID(codecPath)
 	idx.Add(codecPath, discard)
 	assert.Nil(t, idx.Search("donut"))
-	assert.True(t, SetFromSlice([]ID{cpanID, codecID}).Equal(idx.Search("program")))
-	assert.True(t, SetFromSlice([]ID{cpanID, codecID}).Equal(idx.Search("a")))
-	assert.True(t, SetFromSlice([]ID{codecID}).Equal(idx.Search("encodes")))
+	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(idx.Search("program")))
+	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(idx.Search("a")))
+	assert.True(t, SetFromSlice([]string{codecPath}).Equal(idx.Search("encodes")))
 	// TODO: When we do stemming, enable this:
 	//assert.True(t, SetFromSlice([]ID{codecID}).Equal(idx.Search("encode")))
 	assert.Equal(t, 0, idx.Search("DoNuts").Len())
 
 	// Make sure decompression works:
 	bz2Path := "test/data/zreader.txt.bz2"
-	bz2ID := ComputeID(bz2Path)
 	idx.Add(bz2Path, discard)
 	gzPath := "test/data/zreader.txt.gz"
-	gzID := ComputeID(gzPath)
 	idx.Add(gzPath, discard)
-	assert.True(t, SetFromSlice([]ID{bz2ID, gzID}).Equal(idx.Search("goat")))
-	assert.True(t, SetFromSlice([]ID{bz2ID, gzID}).Equal(idx.Search("lazy")))
+	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(idx.Search("goat")))
+	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(idx.Search("lazy")))
 
 	// Make sure indexing pathnames works:
 	cottagePath := "test/data/Craven_Cottage"
-	cottageID := ComputeID(cottagePath)
 	idx.Add(cottagePath, discard)
-	assert.True(t, SetFromSlice([]ID{cottageID}).Equal(idx.Search("craven")))
+	assert.True(t, SetFromSlice([]string{cottagePath}).Equal(idx.Search("craven")))
 }
 
 func TestUnicodeNormalization(t *testing.T) {
@@ -66,13 +61,9 @@ func TestUnicodeNormalization(t *testing.T) {
 	// superscripts, and make sure querying with normal digits works, and vice
 	// versa.
 	nfcPath := "test/data/nfc.txt"
-	nfcID := ComputeID(nfcPath)
 	nfdPath := "test/data/nfd.txt"
-	nfdID := ComputeID(nfdPath)
 	compatibilityKPath := "test/data/compatibility-k.txt"
-	compatibilityKID := ComputeID(compatibilityKPath)
 	compatibilityKelvinPath := "test/data/compatibility-kelvin.txt"
-	compatibilityKelvinID := ComputeID(compatibilityKelvinPath)
 
 	idx := NewIndex(0)
 	idx.Add(nfcPath, discard)
@@ -82,12 +73,12 @@ func TestUnicodeNormalization(t *testing.T) {
 
 	// Refer to the test files: these query strings look the same but are not.
 	// Searching for either should yield both result files.
-	assert.True(t, SetFromSlice([]ID{nfcID, nfdID}).Equal(idx.Search("é")))
-	assert.True(t, SetFromSlice([]ID{nfcID, nfdID}).Equal(idx.Search("é")))
+	assert.True(t, SetFromSlice([]string{nfcPath, nfdPath}).Equal(idx.Search("é")))
+	assert.True(t, SetFromSlice([]string{nfcPath, nfdPath}).Equal(idx.Search("é")))
 
 	// Same thing here:
-	assert.True(t, SetFromSlice([]ID{compatibilityKID, compatibilityKelvinID}).Equal(idx.Search("K")))
-	assert.True(t, SetFromSlice([]ID{compatibilityKID, compatibilityKelvinID}).Equal(idx.Search("K")))
+	assert.True(t, SetFromSlice([]string{compatibilityKPath, compatibilityKelvinPath}).Equal(idx.Search("K")))
+	assert.True(t, SetFromSlice([]string{compatibilityKPath, compatibilityKelvinPath}).Equal(idx.Search("K")))
 }
 
 var (

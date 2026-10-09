@@ -21,15 +21,10 @@ import (
 	"unsafe"
 )
 
-// Index maps tokens (strings) to [Document] [ID]s.
+// Index maps tokens (strings) to [Document] pathnames.
 type Index struct {
-	// Index maps tokens (strings) to 1 or more [Document] [ID]s.
-	//
-	// I considered using Set[ID] instead of []ID, but it costs a lot of memory
-	// and a little time. The current implementation expects the ID slice to be
-	// sorted; if that becomes impossible (such as with more types of document
-	// sets), we may have to pay the price or find some other implementation.
-	Index map[string][]ID
+	// Index maps tokens (strings) to 1 or more [Document] pathnames.
+	Index map[string][]string
 
 	indexMutex sync.Mutex
 
@@ -53,7 +48,7 @@ const DefaultInputLimit = uint64(1 * 1024 * 1024)
 // NewIndex returns a new [Index] with the given inputLimit.
 func NewIndex(inputLimit uint64) *Index {
 	return &Index{
-		Index:      make(map[string][]ID),
+		Index:      make(map[string][]string),
 		Documents:  make(Documents),
 		InputLimit: inputLimit,
 	}
@@ -191,9 +186,8 @@ func (index *Index) addStream(pathname string, info fs.FileInfo, verbose *log.Lo
 	}
 	verbose.Printf("%q", pathname)
 
-	id := ComputeID(pathname)
 	index.documentsMutex.Lock()
-	document, ok := index.Documents[id]
+	document, ok := index.Documents[pathname]
 	if ok && document.IndexedAt.After(info.ModTime()) {
 		index.documentsMutex.Unlock()
 		return nil
@@ -205,7 +199,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo, verbose *log.Lo
 
 	scanner := bufio.NewScanner(bytes.NewBuffer([]byte(pathname)))
 	scanner.Split(scanWords)
-	index.scan(scanner, id, &count)
+	index.scan(scanner, pathname, &count)
 
 	r, e := OpenTextReader(pathname)
 	if e != nil {
@@ -217,14 +211,14 @@ func (index *Index) addStream(pathname string, info fs.FileInfo, verbose *log.Lo
 	scanner.Split(scanWords)
 	const maxTokenLength = 512
 	scanner.Buffer(make([]byte, 0, index.InputLimit), maxTokenLength)
-	index.scan(scanner, id, &count)
+	index.scan(scanner, pathname, &count)
 	index.documentsMutex.Lock()
-	index.Documents[id] = document
+	index.Documents[pathname] = document
 	index.documentsMutex.Unlock()
 	return nil
 }
 
-func (index *Index) scan(scanner *bufio.Scanner, id ID, byteCount *uint64) {
+func (index *Index) scan(scanner *bufio.Scanner, pathname string, byteCount *uint64) {
 	for scanner.Scan() {
 		token := normalizeToken(scanner.Text())
 		if token == "" {
@@ -234,13 +228,9 @@ func (index *Index) scan(scanner *bufio.Scanner, id ID, byteCount *uint64) {
 			break
 		}
 		index.indexMutex.Lock()
-		ids := index.Index[token]
-		if ids != nil && ids[len(ids)-1] == id {
-			// Don't add the same ID twice.
-			index.indexMutex.Unlock()
-			continue
-		}
-		index.Index[token] = append(ids, id)
+		pathnames := index.Index[token]
+		// TODO: Keep these unique by using a map[string]struct{} or Set.
+		index.Index[token] = append(pathnames, pathname)
 		index.indexMutex.Unlock()
 	}
 }
@@ -253,16 +243,17 @@ func (index *Index) checkLimit(token string, count *uint64) (stop bool) {
 	return false
 }
 
-// Search queries the index for the given text.
-func (index *Index) Search(text string) Set[ID] {
-	var r Set[ID]
+// Search queries the index for the given text, and returns a [Set] of document
+// pathnames.
+func (index *Index) Search(text string) Set[string] {
+	var r Set[string]
 	for _, token := range scannerToSlice(bytes.NewBuffer([]byte(text))) {
-		if ids, ok := index.Index[token]; ok {
-			idSet := SetFromSlice(ids)
+		if pathnames, ok := index.Index[token]; ok {
+			s := SetFromSlice(pathnames)
 			if r.Len() == 0 {
-				r = idSet
+				r = s
 			} else {
-				r.Intersection(idSet)
+				r.Intersection(s)
 			}
 		} else {
 			// Token doesn't exist.
