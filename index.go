@@ -29,8 +29,9 @@ type Index struct {
 	indexMutex sync.Mutex
 
 	// Documents contains the [Documents] this Index indexes.
-	Documents
+	*Documents
 
+	// TODO: Documents should hold this.
 	documentsMutex sync.Mutex
 
 	// InputLimit is the maximum number of bytes’ worth of tokens to read per
@@ -47,7 +48,7 @@ const DefaultInputLimit = uint64(8 * 1024 * 1024)
 func NewIndex(inputLimit uint64) *Index {
 	return &Index{
 		Index:      make(map[string][]string),
-		Documents:  make(Documents),
+		Documents:  NewDocuments(),
 		InputLimit: inputLimit,
 	}
 }
@@ -124,7 +125,7 @@ func (index *Index) Add(rootPathname string) error {
 //
 // TODO: Improve this to include more information.
 func (index *Index) String() string {
-	return fmt.Sprintf("Index: %d words in %d documents", len(index.Index), len(index.Documents))
+	return fmt.Sprintf("Index: %d words in %d documents", len(index.Index), len(index.Documents.Documents))
 }
 
 // TODO: This is more of a concern for the crawler, which should be a separate
@@ -180,7 +181,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 	slog.Debug("add", "pathname", pathname)
 
 	index.documentsMutex.Lock()
-	document, ok := index.Documents[pathname]
+	document, ok := index.Documents.Documents[pathname]
 	if ok && document.IndexedAt.After(info.ModTime()) {
 		index.documentsMutex.Unlock()
 		return nil
@@ -206,7 +207,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 	scanner.Buffer(make([]byte, 0, index.InputLimit), maxTokenLength)
 	index.scan(scanner, pathname, &count)
 	index.documentsMutex.Lock()
-	index.Documents[pathname] = document
+	index.Documents.Documents[pathname] = document
 	index.documentsMutex.Unlock()
 	return nil
 }
@@ -267,7 +268,7 @@ type IndexStatistics struct {
 // Statistics returns an [IndexStatistics] estimating the size of index.
 func (index *Index) Statistics() IndexStatistics {
 	r := IndexStatistics{
-		DocumentCount: uint64(len(index.Documents)),
+		DocumentCount: uint64(len(index.Documents.Documents)),
 		TokenCount:    uint64(len(index.Index)),
 	}
 	for tk, hits := range index.Index {

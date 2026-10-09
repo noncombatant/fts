@@ -57,7 +57,7 @@ func saveIndex(index *fts.Index, pathname string) {
 func doSearch(idx *fts.Index, query string) {
 	results := idx.Search(query)
 	for pathname := range results {
-		_, ok := idx.Documents[pathname]
+		_, ok := idx.Documents.Documents[pathname]
 		if ok { // BUG TODO: Figure out why this is necessary.
 			slog.Info("hit", "URL", pathname)
 		}

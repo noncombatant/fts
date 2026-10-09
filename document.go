@@ -13,11 +13,15 @@ type Document struct {
 	IndexedAt time.Time
 }
 
-// Documents is a map of pathnames to [Document]s.
-type Documents map[string]Document
+// Documents maps pathnames to [Document]s.
+type Documents struct {
+	// Documents is a map of pathnames to [Document]s.
+	Documents map[string]Document
 
-// TODO: Idea: For string, token, et c. identifiers, use
-// lukechampine.com/uint128. have to supply getter/setter, for locking. E.g.
-// `GetNewIDForDocument(pathname string) Uint128`. Need a map of Uint128 to
-// Document. Use these IDs in place of pathname strings here and in index.go
-// — a form of compression (both in memory and in the gob).
+	// IDGenerator generates the [ID]s for this set of documents.
+	g IDGenerator
+}
+
+func NewDocuments() *Documents {
+	return &Documents{Documents: make(map[string]Document)}
+}

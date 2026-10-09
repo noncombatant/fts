@@ -10,6 +10,9 @@ import (
 	"sync"
 )
 
+// TODO: Use these IDs in place of pathname strings here and in index.go — a
+// form of compression (both in memory and in the gob).
+
 // ID is a large, opaque numerical value.
 type ID uint64
 
