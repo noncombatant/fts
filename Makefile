@@ -10,7 +10,6 @@ tests:
 	go test -coverprofile="coverage.out" -test.run=. -test.v=true
 	go tool cover -html="coverage.out"
 	go test ./... -bench=.
-	gosloc
 
 build:
 	go build ./cmd/fts
