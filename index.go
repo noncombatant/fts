@@ -63,8 +63,9 @@ func NewIndex(inputLimit uint64) *Index {
 func (index *Index) Encode(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
 	index.indexMutex.Lock()
-	defer index.indexMutex.Unlock()
-	return encoder.Encode(index)
+	e := encoder.Encode(index)
+	index.indexMutex.Unlock()
+	return e
 }
 
 // DecodeIndex deserializes an [Index] from r.
@@ -86,8 +87,6 @@ func (index *Index) Add(rootPathname string) error {
 	}
 
 	var wg sync.WaitGroup
-	defer wg.Wait()
-
 	if info.Mode().IsRegular() {
 		wg.Go(func() {
 			if e := index.addStreamOrTimeout(rootPathname, info); e != nil {
@@ -122,6 +121,7 @@ func (index *Index) Add(rootPathname string) error {
 			return nil
 		})
 	}
+	wg.Wait()
 	return nil
 }
 
