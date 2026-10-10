@@ -10,9 +10,6 @@ import (
 	"sync"
 )
 
-// TODO: Use these IDs in place of pathname strings here and in index.go — a
-// form of compression (both in memory and in the gob).
-
 // ID is a large, opaque numerical value.
 type ID uint64
 
@@ -24,10 +21,12 @@ type IDGenerator struct {
 	mutex   sync.Mutex
 }
 
-func (g *IDGenerator) GetNext() ID {
+// Generate returns a new, unique [ID]. It will panic if it is unable to
+// generate a unique ID.
+func (g *IDGenerator) Generate() ID {
 	g.mutex.Lock()
 	if g.current == math.MaxUint64 {
-		slog.Error("IDGenerator.GetNext hit math.MaxUint64!")
+		slog.Error("IDGenerator.Generate unable to create a unique ID")
 		os.Exit(1)
 	}
 	g.current += 1

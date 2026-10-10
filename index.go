@@ -197,7 +197,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 		}
 	} else {
 		// We are about to index a new document, so create it:
-		id = index.Documents.g.GetNext()
+		id = index.Documents.g.Generate()
 		document = &Document{Pathname: pathname, IndexedAt: time.Now()}
 		index.Documents.Documents[id] = document
 		index.pathnames[pathname] = id

@@ -13,7 +13,7 @@ func TestIDGenerator(t *testing.T) {
 		t.Errorf("new current is not zero; got %v", g.current)
 	}
 	for i := uint64(1); i <= 10; i++ {
-		n := g.GetNext()
+		n := g.Generate()
 		expect := i
 		if n != ID(i) {
 			t.Errorf("got %v, expected %v", n, expect)
