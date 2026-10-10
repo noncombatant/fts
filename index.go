@@ -23,8 +23,8 @@ import (
 
 // Index maps tokens (strings) to [Document] pathnames.
 type Index struct {
-	// Index maps tokens (strings) to 1 or more [Document] pathnames.
-	Index map[string][]string
+	// Index maps tokens (strings) to 1 or more [Document] [ID]s.
+	Index map[string][]ID
 
 	indexMutex sync.Mutex
 
@@ -47,7 +47,7 @@ const DefaultInputLimit = uint64(8 * 1024 * 1024)
 // NewIndex returns a new [Index] with the given inputLimit.
 func NewIndex(inputLimit uint64) *Index {
 	return &Index{
-		Index:      make(map[string][]string),
+		Index:      make(map[string][]ID),
 		Documents:  NewDocuments(),
 		InputLimit: inputLimit,
 	}
@@ -180,20 +180,30 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 	}
 	slog.Debug("add", "pathname", pathname)
 
+	var document *Document
 	index.documentsMutex.Lock()
-	document, ok := index.Documents.Documents[pathname]
-	if ok && document.IndexedAt.After(info.ModTime()) {
-		index.documentsMutex.Unlock()
-		return nil
+	id, ok := index.Documents.pathnames[pathname]
+	if ok {
+		document = index.Documents.Documents[id]
+		if document.IndexedAt.After(info.ModTime()) {
+			// We have indexed the latest version of this document,
+			// and are done.
+			index.documentsMutex.Unlock()
+			return nil
+		}
+	} else {
+		// We are about to index a new document, so create it:
+		id = index.Documents.g.GetNext()
+		document = &Document{Pathname: pathname, IndexedAt: time.Now()}
+		index.Documents.Documents[id] = document
+		index.pathnames[pathname] = id
 	}
 	index.documentsMutex.Unlock()
 
-	document = Document{IndexedAt: time.Now()}
 	count := uint64(0)
-
 	scanner := bufio.NewScanner(bytes.NewBuffer([]byte(pathname)))
 	scanner.Split(scanWords)
-	index.scan(scanner, pathname, &count)
+	index.scan(scanner, id, &count)
 
 	r, e := OpenTextReader(pathname)
 	if e != nil {
@@ -203,16 +213,14 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 
 	scanner = bufio.NewScanner(r)
 	scanner.Split(scanWords)
+	// TODO: Consider making this public and putting it next to DefaultInputLimit.
 	const maxTokenLength = 512
 	scanner.Buffer(make([]byte, 0, index.InputLimit), maxTokenLength)
-	index.scan(scanner, pathname, &count)
-	index.documentsMutex.Lock()
-	index.Documents.Documents[pathname] = document
-	index.documentsMutex.Unlock()
+	index.scan(scanner, id, &count)
 	return nil
 }
 
-func (index *Index) scan(scanner *bufio.Scanner, pathname string, byteCount *uint64) {
+func (index *Index) scan(scanner *bufio.Scanner, id ID, byteCount *uint64) {
 	for scanner.Scan() {
 		token := normalizeToken(scanner.Text())
 		if token == "" {
@@ -222,9 +230,17 @@ func (index *Index) scan(scanner *bufio.Scanner, pathname string, byteCount *uin
 			break
 		}
 		index.indexMutex.Lock()
-		pathnames := index.Index[token]
-		// TODO: Keep these unique by using a map[string]struct{} or Set.
-		index.Index[token] = append(pathnames, pathname)
+		ids := index.Index[token]
+		// TODO: Keep these unique by using a map[string]struct{} or
+		// Set, or at least wrap all this in a helper function.
+		if len(ids) > 0 {
+			last := ids[len(ids)-1]
+			if last != id {
+				index.Index[token] = append(ids, id)
+			}
+		} else {
+			index.Index[token] = append(ids, id)
+		}
 		index.indexMutex.Unlock()
 	}
 }
@@ -240,10 +256,10 @@ func (index *Index) checkLimit(token string, count *uint64) (stop bool) {
 // Search queries the index for the given text, and returns a [Set] of document
 // pathnames.
 func (index *Index) Search(text string) Set[string] {
-	var r Set[string]
+	var r Set[ID]
 	for _, token := range scannerToSlice(bytes.NewBuffer([]byte(text))) {
-		if pathnames, ok := index.Index[token]; ok {
-			s := SetFromSlice(pathnames)
+		if ids, ok := index.Index[token]; ok {
+			s := SetFromSlice(ids)
 			if r.Len() == 0 {
 				r = s
 			} else {
@@ -254,7 +270,13 @@ func (index *Index) Search(text string) Set[string] {
 			return nil
 		}
 	}
-	return r
+
+	// Now map those results into their corresponding pathnames.
+	pathnames := make(Set[string])
+	for id, _ := range r {
+		pathnames.Add(index.Documents.Documents[id].Pathname)
+	}
+	return pathnames
 }
 
 // IndexStatistics estimates the size of an [Index].

@@ -9,19 +9,27 @@ import (
 
 // Document contains metadata about an indexed document.
 type Document struct {
+	// Pathname indicates the pathname of this Document.
+	Pathname string
+
 	// IndexAt gives the time at which we last indexed this Document.
 	IndexedAt time.Time
 }
 
 // Documents maps pathnames to [Document]s.
 type Documents struct {
-	// Documents is a map of pathnames to [Document]s.
-	Documents map[string]Document
+	// Documents is a map of [ID]s to [Document]s.
+	Documents map[ID]*Document
 
-	// IDGenerator generates the [ID]s for this set of documents.
+	// pathnames maps pathnames to the [ID] of the corresponding
+	// [Document]. This must be kept in sync with the Documents field, and
+	// rebuilt when deserializing.
+	pathnames map[string]ID
+
+	// g generates the [ID]s for this set of documents.
 	g IDGenerator
 }
 
 func NewDocuments() *Documents {
-	return &Documents{Documents: make(map[string]Document)}
+	return &Documents{Documents: make(map[ID]*Document), pathnames: make(map[string]ID)}
 }
