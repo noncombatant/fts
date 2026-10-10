@@ -44,6 +44,10 @@ type Index struct {
 // Refer to [Index].
 const DefaultInputLimit = uint64(8 * 1024 * 1024)
 
+// MaxTokenLength is the maximum size in bytes, not runes, of a token. (See
+// [bufio.Scanner].)
+const MaxTokenLength = 512
+
 // NewIndex returns a new [Index] with the given inputLimit.
 func NewIndex(inputLimit uint64) *Index {
 	return &Index{
@@ -213,9 +217,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 
 	scanner = bufio.NewScanner(r)
 	scanner.Split(scanWords)
-	// TODO: Consider making this public and putting it next to DefaultInputLimit.
-	const maxTokenLength = 512
-	scanner.Buffer(make([]byte, 0, index.InputLimit), maxTokenLength)
+	scanner.Buffer(make([]byte, 0, index.InputLimit), MaxTokenLength)
 	index.scan(scanner, id, &count)
 	return nil
 }
