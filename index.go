@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"time"
 	"unsafe"
@@ -231,16 +232,13 @@ func (index *Index) scan(scanner *bufio.Scanner, id ID, byteCount *uint64) {
 		if index.checkLimit(token, byteCount) {
 			break
 		}
+
 		index.indexMutex.Lock()
 		ids := index.Index[token]
-		// TODO: Keep these unique by using a map[string]struct{} or
-		// Set, or at least wrap all this in a helper function.
-		if len(ids) > 0 {
-			last := ids[len(ids)-1]
-			if last != id {
-				index.Index[token] = append(ids, id)
-			}
-		} else {
+		// TODO: Keep these unique by using a map or Set — don't love
+		// this linear search. However, when we make this change, we
+		// get a deadlock. Don't understand why yet.
+		if !slices.Contains(ids, id) {
 			index.Index[token] = append(ids, id)
 		}
 		index.indexMutex.Unlock()
