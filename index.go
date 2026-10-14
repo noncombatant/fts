@@ -18,7 +18,6 @@ import (
 	"runtime/debug"
 	"slices"
 	"sync"
-	"time"
 	"unsafe"
 )
 
@@ -182,37 +181,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 	}
 	slog.Debug("add", "pathname", pathname)
 
-	// TODO: This stanza should be wrapped in a method of Documents, so
-	// that it can manage its private mutex internally. Call it e.g. `func
-	// (ds *Documents) Upsert(pathname string, info fs.FileInfo)
-	// *Document`.
-	var document *Document
-	index.Documents.mutex.Lock()
-	id, ok := index.Documents.pathnames[pathname]
-	if ok {
-		document = index.Documents.IDToDocument[id]
-		if document.IndexedAt.After(info.ModTime()) {
-			// We have indexed the latest version of this document,
-			// and are done.
-			index.Documents.mutex.Unlock()
-			return nil
-		}
-
-		// TODO: At this point, we have a Document that has been
-		// indexed before, and which is about to be indexed again.
-		// Since its contents may have changed substantially, we need
-		// to remove the Document's ID everywhere it appears in
-		// Index.TokenToIDs (!); or, alternatively, to give the
-		// Document a new ID and mark the old ID as stale (and then
-		// vacuum the data structures asynchronously).
-	} else {
-		// We are about to index a new document, so create it:
-		id = index.Documents.g.Generate()
-		document = &Document{Pathname: pathname, IndexedAt: time.Now()}
-		index.Documents.IDToDocument[id] = document
-		index.pathnames[pathname] = id
-	}
-	index.Documents.mutex.Unlock()
+	_, id := index.Documents.Upsert(pathname, info)
 
 	count := uint64(0)
 	scanner := bufio.NewScanner(bytes.NewBuffer([]byte(pathname)))
