@@ -5,6 +5,7 @@ package simplefts
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,6 +43,7 @@ type TextReader struct {
 	byteReader    *bytes.Reader
 	pdfTextReader *pdf.TextReader
 	zReader       *zreader.Reader
+	underlying    io.ReadCloser
 }
 
 var nilReader = &TextReader{
@@ -57,25 +59,38 @@ func OpenTextReader(pathname string) (*TextReader, error) {
 
 	switch ext {
 	case ".pdf":
-		pdfReader, e := pdf.Open(pathname)
+		f, e := os.Open(pathname)
 		if e != nil {
+			return nil, e
+		}
+		info, e := f.Stat()
+		if e != nil {
+			f.Close()
+			return nil, e
+		}
+		pdfReader, e := pdf.NewReader(f, info.Size())
+		if e != nil {
+			f.Close()
 			return nil, e
 		}
 		return &TextReader{
 			trType:        trPDFTextReader,
 			pdfTextReader: pdf.NewTextReader(pdfReader),
+			underlying:    f,
 		}, nil
 	case ".mp3":
 		file, e := os.Open(pathname)
 		if e != nil {
 			return nil, e
 		}
-		defer file.Close()
 		data := make([]byte, 4096)
 		_, e = file.Read(data)
+		file.Close()
 		if e != nil {
 			return nil, e
 		}
+		// TODO: Also get v1-style ID3 metadata from the last 128 bytes
+		// of the file.
 		return &TextReader{
 			trType:     trByte,
 			byteReader: bytes.NewReader(data),
@@ -94,6 +109,15 @@ func OpenTextReader(pathname string) (*TextReader, error) {
 
 func (tr *TextReader) Close() error {
 	switch tr.trType {
+	case trByte:
+		// Do nothing, since all existing cases in which we build a
+		// trByte reader is just reading from a slice, not an open
+		// Reader.
+		return nil
+	case trID3Reader:
+		panic("BUG: Not implemented, but we got here somehow")
+	case trPDFTextReader:
+		return tr.underlying.Close()
 	case trZReader:
 		return tr.zReader.Close()
 	}
