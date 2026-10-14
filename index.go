@@ -24,10 +24,10 @@ import (
 
 // Index maps tokens (strings) to [Document] pathnames.
 type Index struct {
-	// Index maps tokens (strings) to 1 or more [Document] [ID]s.
-	Index map[string][]ID
+	// TokenToIDs maps tokens to 1 or more [Document] [ID]s.
+	TokenToIDs map[string][]ID
 
-	indexMutex sync.Mutex
+	ttdMutex sync.Mutex
 
 	// Documents contains the [Documents] this Index indexes.
 	*Documents
@@ -42,7 +42,7 @@ type Index struct {
 
 // DefaultInputLimit is large enough to hopefully get most of the meaningful
 // tokens from a [Document], while still keeping memory consumption reasonable.
-// Refer to [Index].
+// 0 indicates no limit. Refer to [Index].
 const DefaultInputLimit = uint64(8 * 1024 * 1024)
 
 // MaxTokenLength is the maximum size in bytes, not runes, of a token. (See
@@ -52,7 +52,7 @@ const MaxTokenLength = 512
 // NewIndex returns a new [Index] with the given inputLimit.
 func NewIndex(inputLimit uint64) *Index {
 	return &Index{
-		Index:      make(map[string][]ID),
+		TokenToIDs: make(map[string][]ID),
 		Documents:  NewDocuments(),
 		InputLimit: inputLimit,
 	}
@@ -63,9 +63,9 @@ func NewIndex(inputLimit uint64) *Index {
 // It currently uses [encoding/gob], but that will surely have to change.
 func (index *Index) Encode(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-	index.indexMutex.Lock()
+	index.ttdMutex.Lock()
 	e := encoder.Encode(index)
-	index.indexMutex.Unlock()
+	index.ttdMutex.Unlock()
 	return e
 }
 
@@ -130,7 +130,7 @@ func (index *Index) Add(rootPathname string) error {
 //
 // TODO: Improve this to include more information.
 func (index *Index) String() string {
-	return fmt.Sprintf("Index: %d words in %d documents", len(index.Index), len(index.Documents.Documents))
+	return fmt.Sprintf("Index: %d words in %d documents", len(index.TokenToIDs), len(index.Documents.IDToDocument))
 }
 
 // TODO: This is more of a concern for the crawler, which should be a separate
@@ -189,7 +189,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 	index.documentsMutex.Lock()
 	id, ok := index.Documents.pathnames[pathname]
 	if ok {
-		document = index.Documents.Documents[id]
+		document = index.Documents.IDToDocument[id]
 		if document.IndexedAt.After(info.ModTime()) {
 			// We have indexed the latest version of this document,
 			// and are done.
@@ -200,7 +200,7 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 		// We are about to index a new document, so create it:
 		id = index.Documents.g.Generate()
 		document = &Document{Pathname: pathname, IndexedAt: time.Now()}
-		index.Documents.Documents[id] = document
+		index.Documents.IDToDocument[id] = document
 		index.pathnames[pathname] = id
 	}
 	index.documentsMutex.Unlock()
@@ -233,15 +233,15 @@ func (index *Index) scan(scanner *bufio.Scanner, id ID, byteCount *uint64) {
 			break
 		}
 
-		index.indexMutex.Lock()
-		ids := index.Index[token]
+		index.ttdMutex.Lock()
+		ids := index.TokenToIDs[token]
 		// TODO: Keep these unique by using a map or Set — don't love
 		// this linear search. However, when we make this change, we
 		// get a deadlock. Don't understand why yet.
 		if !slices.Contains(ids, id) {
-			index.Index[token] = append(ids, id)
+			index.TokenToIDs[token] = append(ids, id)
 		}
-		index.indexMutex.Unlock()
+		index.ttdMutex.Unlock()
 	}
 }
 
@@ -258,7 +258,7 @@ func (index *Index) checkLimit(token string, count *uint64) (stop bool) {
 func (index *Index) Search(text string) Set[string] {
 	var r Set[ID]
 	for _, token := range scannerToSlice(bytes.NewBuffer([]byte(text))) {
-		if ids, ok := index.Index[token]; ok {
+		if ids, ok := index.TokenToIDs[token]; ok {
 			s := SetFromSlice(ids)
 			if r.Len() == 0 {
 				r = s
@@ -273,8 +273,8 @@ func (index *Index) Search(text string) Set[string] {
 
 	// Now map those results into their corresponding pathnames.
 	pathnames := make(Set[string])
-	for id, _ := range r {
-		pathnames.Add(index.Documents.Documents[id].Pathname)
+	for id := range r {
+		pathnames.Add(index.Documents.IDToDocument[id].Pathname)
 	}
 	return pathnames
 }
@@ -290,10 +290,10 @@ type IndexStatistics struct {
 // Statistics returns an [IndexStatistics] estimating the size of index.
 func (index *Index) Statistics() IndexStatistics {
 	r := IndexStatistics{
-		DocumentCount: uint64(len(index.Documents.Documents)),
-		TokenCount:    uint64(len(index.Index)),
+		DocumentCount: uint64(len(index.Documents.IDToDocument)),
+		TokenCount:    uint64(len(index.TokenToIDs)),
 	}
-	for tk, hits := range index.Index {
+	for tk, hits := range index.TokenToIDs {
 		r.BytesUsed += uint64(len(tk))
 		r.BytesUsed += uint64(len(hits)) * uint64(unsafe.Sizeof(hits[0]))
 		r.TokenHits += uint64(len(hits))

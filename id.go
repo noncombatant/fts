@@ -10,10 +10,10 @@ import (
 	"sync"
 )
 
-// ID is a large, opaque numerical value.
+// ID is an opaque numerical value from a large set.
 type ID uint64
 
-// IDGenerator generates new IDs, unique to the generator. (I.e. you can have
+// IDGenerator generates new IDs, unique to the generator. (You can have
 // multiple IDGenerators, each with its own internal state, and the guarantee
 // of uniqueness is particular to that generator.)
 type IDGenerator struct {
@@ -21,8 +21,7 @@ type IDGenerator struct {
 	mutex   sync.Mutex
 }
 
-// Generate returns a new, unique [ID]. It will panic if it is unable to
-// generate a unique ID.
+// Generate returns a new, unique [ID]. It will panic if it is unable to do so.
 func (g *IDGenerator) Generate() ID {
 	g.mutex.Lock()
 	if g.current == math.MaxUint64 {

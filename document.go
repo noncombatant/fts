@@ -18,12 +18,11 @@ type Document struct {
 
 // Documents maps pathnames to [Document]s.
 type Documents struct {
-	// Documents is a map of [ID]s to [Document]s.
-	Documents map[ID]*Document
+	// IDToDocument is a map of [ID]s to [Document]s.
+	IDToDocument map[ID]*Document
 
 	// pathnames maps pathnames to the [ID] of the corresponding
-	// [Document]. This must be kept in sync with the Documents field, and
-	// rebuilt when deserializing.
+	// [Document]. This must be kept in sync with the Documents field.
 	pathnames map[string]ID
 
 	// g generates the [ID]s for this set of documents.
@@ -31,5 +30,5 @@ type Documents struct {
 }
 
 func NewDocuments() *Documents {
-	return &Documents{Documents: make(map[ID]*Document), pathnames: make(map[string]ID)}
+	return &Documents{IDToDocument: make(map[ID]*Document), pathnames: make(map[string]ID)}
 }
