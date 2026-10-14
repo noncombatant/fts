@@ -25,3 +25,6 @@ Design and implement fancier querying syntax and semantics.
 
 Improve test coverage. Make the tests exhaustively search for every word (and
 every token derivable from it) in the testdata set.
+
+Refactor all pathname talk to URL talk, and decouple URL naming from storage.
+Simple storage scheme: `pathname = base64(normalize(url).String())`.
