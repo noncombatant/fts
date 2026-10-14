@@ -16,6 +16,8 @@ type ID uint64
 // IDGenerator generates new IDs, unique to the generator. (You can have
 // multiple IDGenerators, each with its own internal state, and the guarantee
 // of uniqueness is particular to that generator.)
+//
+// IDGenerator is concurrency-safe.
 type IDGenerator struct {
 	current uint64
 	mutex   sync.Mutex

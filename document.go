@@ -4,6 +4,7 @@
 package simplefts
 
 import (
+	"sync"
 	"time"
 )
 
@@ -12,7 +13,7 @@ type Document struct {
 	// Pathname indicates the pathname of this Document.
 	Pathname string
 
-	// IndexAt gives the time at which we last indexed this Document.
+	// IndexedAt is the time at which we last indexed this Document.
 	IndexedAt time.Time
 }
 
@@ -20,6 +21,9 @@ type Document struct {
 type Documents struct {
 	// IDToDocument is a map of [ID]s to [Document]s.
 	IDToDocument map[ID]*Document
+
+	// mutex guards [IDToDocument].
+	mutex sync.Mutex
 
 	// pathnames maps pathnames to the [ID] of the corresponding
 	// [Document]. This must be kept in sync with the Documents field.
