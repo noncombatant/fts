@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 	fts "github.com/noncombatant/simplefts"
@@ -55,10 +56,13 @@ func saveIndex(index *fts.Index, pathname string) {
 }
 
 func doSearch(idx *fts.Index, query string) {
+	start := time.Now()
 	results := idx.Search(query)
+	elapsed := time.Now().Sub(start)
 	for pathname := range results {
 		slog.Info("hit", "URL", pathname)
 	}
+	slog.Info("results", "count", len(results), "elapsed", elapsed)
 }
 
 func atRoot(previous, name string) bool {
