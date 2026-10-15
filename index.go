@@ -18,8 +18,22 @@ import (
 	"runtime/debug"
 	"slices"
 	"sync"
+	"time"
 	"unsafe"
 )
+
+type stats struct {
+	bytes   uint64
+	elapsed time.Duration
+	mutex   sync.Mutex
+}
+
+func (s *stats) add(bytes uint64, elapsed time.Duration) {
+	s.mutex.Lock()
+	s.bytes += bytes
+	s.elapsed += elapsed
+	s.mutex.Unlock()
+}
 
 // Index maps tokens (strings) to [Document] pathnames.
 type Index struct {
@@ -34,6 +48,8 @@ type Index struct {
 	// InputLimit is the maximum number of bytes’ worth of tokens to read per
 	// document. 0 indicates no limit. Refer to [DefaultInputLimit].
 	InputLimit uint64
+
+	stats
 }
 
 // DefaultInputLimit is large enough to hopefully get most of the meaningful
@@ -43,7 +59,14 @@ const DefaultInputLimit = uint64(8 * 1024 * 1024)
 
 // MaxTokenLength is the maximum size in bytes, not runes, of a token. (See
 // [bufio.Scanner].)
-const MaxTokenLength = 512
+const MaxTokenLength = 48
+
+// `awk '{ print(length($0), $0) }' /usr/share/dict/words | sort -n | tail`
+// yields "28 antidisestablishmentarianism".
+// https://www.merriam-webster.com/wordplay/longest-words-ever has
+// "Pneumonoultramicroscopicsilicovolcanoconiosis" (45 letters), and
+// https://en.wikipedia.org/wiki/Longest_word_in_French has
+// "hippopotomonstrosesquippedaliophobique" (38). So, 48 seems ok for now.
 
 // NewIndex returns a new [Index] with the given inputLimit.
 func NewIndex(inputLimit uint64) *Index {
@@ -126,7 +149,7 @@ func (index *Index) Add(rootPathname string) error {
 //
 // TODO: Improve this to include more information.
 func (index *Index) String() string {
-	return fmt.Sprintf("Index: %d words in %d documents", len(index.TokenToIDs), len(index.Documents.IDToDocument))
+	return fmt.Sprintf("Index: %d tokens, %d bytes in %d documents, indexed in %v", len(index.TokenToIDs), index.bytes, len(index.Documents.IDToDocument), index.elapsed)
 }
 
 // TODO: This is more of a concern for the crawler, which should be a separate
@@ -192,18 +215,19 @@ func (index *Index) addStream(pathname string, info fs.FileInfo) error {
 	if e != nil {
 		return e
 	}
-	defer r.Close()
-
 	scanner = bufio.NewScanner(r)
 	scanner.Split(scanWords)
 	scanner.Buffer(make([]byte, 0, index.InputLimit), MaxTokenLength)
 	index.scan(scanner, id, &count)
+	r.Close()
 	return nil
 }
 
 func (index *Index) scan(scanner *bufio.Scanner, id ID, byteCount *uint64) {
 	for scanner.Scan() {
-		token := normalizeToken(scanner.Text())
+		start := time.Now()
+		text := scanner.Text()
+		token := normalizeToken(text)
 		if token == "" {
 			continue
 		}
@@ -220,6 +244,7 @@ func (index *Index) scan(scanner *bufio.Scanner, id ID, byteCount *uint64) {
 			index.TokenToIDs[token] = append(ids, id)
 		}
 		index.ttdMutex.Unlock()
+		index.stats.add(uint64(len(text)), time.Since(start))
 	}
 }
 
