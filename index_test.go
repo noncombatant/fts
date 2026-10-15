@@ -13,42 +13,42 @@ import (
 )
 
 func TestIndex(t *testing.T) {
-	idx := NewIndex(0)
+	index := NewIndex(0)
 
-	assert.Nil(t, idx.Search("foo"))
-	assert.Nil(t, idx.Search("cement"))
+	assert.Nil(t, index.Search("foo"))
+	assert.Nil(t, index.Search("cement"))
 
 	cpanPath := "test/data/CPAN"
-	idx.Add(cpanPath)
+	index.Add(cpanPath)
 	expected := SetFromSlice([]string{cpanPath})
-	assert.True(t, expected.Equal(idx.Search("a")))
-	assert.True(t, expected.Equal(idx.Search("perl")))
-	assert.True(t, expected.Equal(idx.Search("PeRl")))
-	assert.True(t, expected.Equal(idx.Search("program")))
-	assert.Equal(t, 0, idx.Search("DoNuts").Len())
+	assert.True(t, expected.Equal(index.Search("a")))
+	assert.True(t, expected.Equal(index.Search("perl")))
+	assert.True(t, expected.Equal(index.Search("PeRl")))
+	assert.True(t, expected.Equal(index.Search("program")))
+	assert.Equal(t, 0, index.Search("DoNuts").Len())
 
 	codecPath := "test/data/Codec"
-	idx.Add(codecPath)
-	assert.Nil(t, idx.Search("donut"))
-	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(idx.Search("program")))
-	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(idx.Search("a")))
-	assert.True(t, SetFromSlice([]string{codecPath}).Equal(idx.Search("encodes")))
+	index.Add(codecPath)
+	assert.Nil(t, index.Search("donut"))
+	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(index.Search("program")))
+	assert.True(t, SetFromSlice([]string{cpanPath, codecPath}).Equal(index.Search("a")))
+	assert.True(t, SetFromSlice([]string{codecPath}).Equal(index.Search("encodes")))
 	// TODO: When we do stemming, enable this:
-	//assert.True(t, SetFromSlice([]ID{codecID}).Equal(idx.Search("encode")))
-	assert.Equal(t, 0, idx.Search("DoNuts").Len())
+	//assert.True(t, SetFromSlice([]ID{codecID}).Equal(index.Search("encode")))
+	assert.Equal(t, 0, index.Search("DoNuts").Len())
 
 	// Make sure decompression works:
 	bz2Path := "test/data/zreader.txt.bz2"
-	idx.Add(bz2Path)
+	index.Add(bz2Path)
 	gzPath := "test/data/zreader.txt.gz"
-	idx.Add(gzPath)
-	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(idx.Search("goat")))
-	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(idx.Search("lazy")))
+	index.Add(gzPath)
+	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(index.Search("goat")))
+	assert.True(t, SetFromSlice([]string{bz2Path, gzPath}).Equal(index.Search("lazy")))
 
 	// Make sure indexing pathnames works:
 	cottagePath := "test/data/Craven_Cottage"
-	idx.Add(cottagePath)
-	assert.True(t, SetFromSlice([]string{cottagePath}).Equal(idx.Search("craven")))
+	index.Add(cottagePath)
+	assert.True(t, SetFromSlice([]string{cottagePath}).Equal(index.Search("craven")))
 }
 
 func TestUnicodeNormalization(t *testing.T) {
@@ -61,20 +61,20 @@ func TestUnicodeNormalization(t *testing.T) {
 	compatibilityKPath := "test/data/compatibility-k.txt"
 	compatibilityKelvinPath := "test/data/compatibility-kelvin.txt"
 
-	idx := NewIndex(0)
-	idx.Add(nfcPath)
-	idx.Add(nfdPath)
-	idx.Add(compatibilityKPath)
-	idx.Add(compatibilityKelvinPath)
+	index := NewIndex(0)
+	index.Add(nfcPath)
+	index.Add(nfdPath)
+	index.Add(compatibilityKPath)
+	index.Add(compatibilityKelvinPath)
 
 	// Refer to the test files: these query strings look the same but are not.
 	// Searching for either should yield both result files.
-	assert.True(t, SetFromSlice([]string{nfcPath, nfdPath}).Equal(idx.Search("é")))
-	assert.True(t, SetFromSlice([]string{nfcPath, nfdPath}).Equal(idx.Search("é")))
+	assert.True(t, SetFromSlice([]string{nfcPath, nfdPath}).Equal(index.Search("é")))
+	assert.True(t, SetFromSlice([]string{nfcPath, nfdPath}).Equal(index.Search("é")))
 
 	// Same thing here:
-	assert.True(t, SetFromSlice([]string{compatibilityKPath, compatibilityKelvinPath}).Equal(idx.Search("K")))
-	assert.True(t, SetFromSlice([]string{compatibilityKPath, compatibilityKelvinPath}).Equal(idx.Search("K")))
+	assert.True(t, SetFromSlice([]string{compatibilityKPath, compatibilityKelvinPath}).Equal(index.Search("K")))
+	assert.True(t, SetFromSlice([]string{compatibilityKPath, compatibilityKelvinPath}).Equal(index.Search("K")))
 }
 
 var (
@@ -94,8 +94,8 @@ func BenchmarkIndexMemory(b *testing.B) {
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
 
-	idx := NewIndex(0)
-	idx.Add("test/data")
+	index := NewIndex(0)
+	index.Add("test/data")
 
 	runtime.ReadMemStats(&m2)
 	loadBytes := float64(m2.Alloc - m1.Alloc)

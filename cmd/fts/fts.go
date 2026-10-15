@@ -55,9 +55,9 @@ func saveIndex(index *fts.Index, pathname string) {
 	}
 }
 
-func doSearch(idx *fts.Index, query string) {
+func doSearch(index *fts.Index, query string) {
 	start := time.Now()
-	results := idx.Search(query)
+	results := index.Search(query)
 	elapsed := time.Now().Sub(start)
 	for pathname := range results {
 		slog.Info("hit", "URL", pathname)
@@ -177,11 +177,11 @@ func main() {
 		if *indexDebug {
 			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
-		idx := fts.NewIndex(*indexInputLimit)
+		index := fts.NewIndex(*indexInputLimit)
 		for _, pathname := range pathnames {
-			createIndex(idx, pathname)
+			createIndex(index, pathname)
 		}
-		saveIndex(idx, *indexIndexPathname)
+		saveIndex(index, *indexIndexPathname)
 		if *indexMemoryProfilePathname != "" {
 			f, e := os.Create(*indexMemoryProfilePathname)
 			if e != nil {
@@ -193,7 +193,7 @@ func main() {
 				fatal("WriteHeapProfile", "error", e)
 			}
 		}
-		idx.LogStatistics()
+		index.LogStatistics()
 	case "query":
 		queryCommand.Parse(os.Args[2:])
 		indexPathname := findIndexPathname(*queryIndexPathname)
@@ -205,18 +205,18 @@ func main() {
 			fatal("open zReader", "pathname", indexPathname, "error", e)
 		}
 		defer zr.Close()
-		idx, e := fts.DecodeIndex(zr)
+		index, e := fts.DecodeIndex(zr)
 		if e != nil {
 			fatal("DecodeIndex", "error", e)
 		}
 		query := strings.Join(queryCommand.Args(), " ")
 		if query != "" {
-			doSearch(idx, query)
+			doSearch(index, query)
 		} else {
 			slog.Info("query server ready")
 			scanner := bufio.NewScanner(os.Stdin)
 			for scanner.Scan() {
-				doSearch(idx, scanner.Text())
+				doSearch(index, scanner.Text())
 			}
 		}
 	default:
