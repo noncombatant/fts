@@ -193,6 +193,7 @@ func main() {
 				fatal("WriteHeapProfile", "error", e)
 			}
 		}
+		idx.LogStatistics()
 	case "query":
 		queryCommand.Parse(os.Args[2:])
 		indexPathname := findIndexPathname(*queryIndexPathname)

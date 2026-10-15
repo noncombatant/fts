@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -145,11 +144,9 @@ func (index *Index) Add(rootPathname string) error {
 	return nil
 }
 
-// String renders an [Index] as a string.
-//
-// TODO: Improve this to include more information.
-func (index *Index) String() string {
-	return fmt.Sprintf("Index: %d tokens, %d bytes in %d documents, indexed in %v", len(index.TokenToIDs), index.bytes, len(index.Documents.IDToDocument), index.elapsed)
+// LogStatistics logs statistics about index.
+func (index *Index) LogStatistics() {
+	slog.Info("index statistics", "tokens", len(index.TokenToIDs), "bytes", index.stats.bytes, "documents", len(index.Documents.IDToDocument), "elapsed", index.stats.elapsed)
 }
 
 // TODO: This is more of a concern for the crawler, which should be a separate
